@@ -81,6 +81,14 @@ class GameController {
         document.getElementById('btn-menu')?.addEventListener('click', () => {
             this.showScreen('menu');
         });
+        
+        // Shop buy buttons
+        document.querySelectorAll('.buy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const item = (e.target as HTMLElement).getAttribute('data-item');
+                this.buyItem(item!);
+            });
+        });
 
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
@@ -250,8 +258,41 @@ class GameController {
         const results = document.getElementById('round-results')!;
         
         if (winner >= 0) {
-            results.textContent = `Round ${this.round} - Player ${winner + 1} wins! +$500`;
+            results.textContent = `Round ${this.round} - ${this.tanks[winner].name} wins! +$500`;
             this.playerMoney[winner] += 500;
+        }
+    }
+    
+    private buyItem(item: string): void {
+        const currentPlayerIndex = this.tanks.findIndex(t => t.isAlive());
+        if (currentPlayerIndex < 0) return;
+        
+        let cost = 0;
+        let success = false;
+        
+        switch (item) {
+            case 'shield':
+                cost = 200;
+                if (this.playerMoney[currentPlayerIndex] >= cost) {
+                    this.tanks[currentPlayerIndex].addShield(50);
+                    this.playerMoney[currentPlayerIndex] -= cost;
+                    success = true;
+                }
+                break;
+            case 'repair':
+                cost = 150;
+                if (this.playerMoney[currentPlayerIndex] >= cost) {
+                    this.tanks[currentPlayerIndex].repair(30);
+                    this.playerMoney[currentPlayerIndex] -= cost;
+                    success = true;
+                }
+                break;
+        }
+        
+        if (success) {
+            alert(`Purchased ${item}! Remaining: $${this.playerMoney[currentPlayerIndex]}`);
+        } else {
+            alert('Not enough money!');
         }
     }
 
