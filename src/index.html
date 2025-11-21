@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Classic 2D tank artillery game">
+    <meta name="theme-color" content="#4169E1">
+    <title>Tanks-A-Lot</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="menu-screen" class="screen active">
+            <h1>Tanks-A-Lot</h1>
+            <button id="btn-1player">1 Player</button>
+            <button id="btn-2player">2 Players</button>
+        </div>
+        
+        <div id="game-screen" class="screen">
+            <div id="hud">
+                <div id="player-info">
+                    <span id="current-player">Player 1</span>
+                    <span id="money">Money: $1000</span>
+                </div>
+                <div id="controls">
+                    <div class="control-group">
+                        <label>Angle: <span id="angle-value">45</span>°</label>
+                        <input type="range" id="angle" min="0" max="180" value="45">
+                    </div>
+                    <div class="control-group">
+                        <label>Power: <span id="power-value">50</span>%</label>
+                        <input type="range" id="power" min="10" max="100" value="50">
+                    </div>
+                    <div class="control-group">
+                        <label>Weapon:</label>
+                        <select id="weapon">
+                            <option value="normal">Normal ($0)</option>
+                            <option value="napalm">Napalm ($100)</option>
+                            <option value="nuke">Nuke ($500)</option>
+                            <option value="blackhole">Black Hole ($1000)</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="btn-fire">Fire!</button>
+            </div>
+            <canvas id="game-canvas"></canvas>
+        </div>
+        
+        <div id="shop-screen" class="screen">
+            <h2>Round Complete!</h2>
+            <div id="round-results"></div>
+            <h3>Shop</h3>
+            <div id="shop-items">
+                <div class="shop-item">
+                    <h4>Napalm Round</h4>
+                    <p>Creates a spreading fire on impact</p>
+                    <p>Cost: $100</p>
+                </div>
+                <div class="shop-item">
+                    <h4>Nuke</h4>
+                    <p>Massive explosion radius</p>
+                    <p>Cost: $500</p>
+                </div>
+                <div class="shop-item">
+                    <h4>Black Hole</h4>
+                    <p>Sucks in terrain and tanks</p>
+                    <p>Cost: $1000</p>
+                </div>
+            </div>
+            <button id="btn-next-round">Next Round</button>
+        </div>
+        
+        <div id="game-over-screen" class="screen">
+            <h1>Game Over</h1>
+            <p id="winner-text"></p>
+            <button id="btn-menu">Back to Menu</button>
+        </div>
+    </div>
+    
+    <script type="module" src="main.js"></script>
+</body>
+</html>

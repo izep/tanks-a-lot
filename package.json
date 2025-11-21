@@ -1,0 +1,17 @@
+{
+  "name": "tanks-a-lot",
+  "version": "1.0.0",
+  "description": "Classic tank game PWA",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && cp src/*.html dist/ && cp src/*.css dist/ && cp src/manifest.json dist/ && cp src/service-worker.js dist/ && mkdir -p dist/icons && cp src/icons/* dist/icons/ 2>/dev/null || true",
+    "watch": "tsc --watch",
+    "serve": "python3 -m http.server 8000 --directory dist"
+  },
+  "keywords": ["tank", "game", "pwa"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}
