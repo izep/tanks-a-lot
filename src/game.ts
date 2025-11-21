@@ -1,3 +1,24 @@
+// Game physics and environment
+export class GameEnvironment {
+    gravity: number;
+    windSpeed: number;
+
+    constructor() {
+        this.gravity = 0.5;
+        this.windSpeed = 0;
+        this.generateWind();
+    }
+
+    generateWind(): void {
+        // Random wind between -2 and 2
+        this.windSpeed = (Math.random() - 0.5) * 4;
+    }
+
+    setGravity(gravity: number): void {
+        this.gravity = gravity;
+    }
+}
+
 // Terrain generation and manipulation
 export class Terrain {
     private heights: number[];
@@ -137,17 +158,25 @@ export class Tank {
     angle: number;
     power: number;
     health: number;
+    maxHealth: number;
+    shield: number;
+    maxShield: number;
     color: string;
     isAI: boolean;
+    name: string;
 
-    constructor(x: number, y: number, color: string, isAI: boolean = false) {
+    constructor(x: number, y: number, color: string, name: string = 'Player', isAI: boolean = false) {
         this.x = x;
         this.y = y;
         this.angle = 45;
         this.power = 50;
         this.health = 100;
+        this.maxHealth = 100;
+        this.shield = 0;
+        this.maxShield = 50;
         this.color = color;
         this.isAI = isAI;
+        this.name = name;
     }
 
     setPosition(x: number, y: number): void {
@@ -164,7 +193,21 @@ export class Tank {
     }
 
     takeDamage(damage: number): void {
+        // Shield absorbs damage first
+        if (this.shield > 0) {
+            const shieldDamage = Math.min(this.shield, damage);
+            this.shield -= shieldDamage;
+            damage -= shieldDamage;
+        }
         this.health = Math.max(0, this.health - damage);
+    }
+
+    addShield(amount: number): void {
+        this.shield = Math.min(this.maxShield, this.shield + amount);
+    }
+
+    repair(amount: number): void {
+        this.health = Math.min(this.maxHealth, this.health + amount);
     }
 
     isAlive(): boolean {
@@ -199,6 +242,12 @@ export class Tank {
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x - 10, canvasHeight - this.y - 10, 20, 10);
         
+        // Draw turret
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, canvasHeight - this.y - 5, 5, 0, Math.PI * 2);
+        ctx.fill();
+        
         // Draw barrel
         const barrelLength = 15;
         const angleRad = (this.angle) * Math.PI / 180;
@@ -212,11 +261,36 @@ export class Tank {
         ctx.lineTo(endX, endY);
         ctx.stroke();
         
+        // Draw shield if active
+        if (this.shield > 0) {
+            ctx.strokeStyle = 'cyan';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, canvasHeight - this.y, 18, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Shield strength indicator
+            ctx.strokeStyle = `rgba(0, 255, 255, ${this.shield / this.maxShield})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(this.x, canvasHeight - this.y, 18, 0, Math.PI * 2 * (this.shield / this.maxShield));
+            ctx.stroke();
+        }
+        
         // Draw health bar
         ctx.fillStyle = 'red';
-        ctx.fillRect(this.x - 15, canvasHeight - this.y - 20, 30, 5);
+        ctx.fillRect(this.x - 15, canvasHeight - this.y - 25, 30, 4);
         ctx.fillStyle = 'green';
-        ctx.fillRect(this.x - 15, canvasHeight - this.y - 20, 30 * (this.health / 100), 5);
+        ctx.fillRect(this.x - 15, canvasHeight - this.y - 25, 30 * (this.health / this.maxHealth), 4);
+        
+        // Draw name
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 3;
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.strokeText(this.name, this.x, canvasHeight - this.y - 28);
+        ctx.fillText(this.name, this.x, canvasHeight - this.y - 28);
     }
 }
 
@@ -228,6 +302,7 @@ export class Projectile {
     vy: number;
     type: string;
     active: boolean;
+    trail: Array<{x: number, y: number}>;
 
     constructor(x: number, y: number, angle: number, power: number, type: string = 'normal') {
         this.x = x;
@@ -238,19 +313,56 @@ export class Projectile {
         this.vy = Math.sin(angleRad) * speed;
         this.type = type;
         this.active = true;
+        this.trail = [];
     }
 
-    update(dt: number): void {
+    update(dt: number, gravity: number, windSpeed: number): void {
+        // Store trail for visual effect
+        if (this.trail.length > 20) {
+            this.trail.shift();
+        }
+        this.trail.push({x: this.x, y: this.y});
+        
         this.x += this.vx * dt;
         this.y += this.vy * dt;
-        this.vy -= 0.5 * dt; // Gravity
+        this.vy -= gravity * dt; // Gravity
+        
+        // Wind affects projectile
+        this.vx += windSpeed * dt * 0.01;
     }
 
     render(ctx: CanvasRenderingContext2D, canvasHeight: number): void {
+        // Draw trail
+        ctx.strokeStyle = this.getColor();
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.3;
+        ctx.beginPath();
+        for (let i = 0; i < this.trail.length - 1; i++) {
+            const alpha = i / this.trail.length;
+            ctx.globalAlpha = alpha * 0.5;
+            if (i === 0) {
+                ctx.moveTo(this.trail[i].x, canvasHeight - this.trail[i].y);
+            } else {
+                ctx.lineTo(this.trail[i].x, canvasHeight - this.trail[i].y);
+            }
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+        
+        // Draw projectile
         ctx.fillStyle = this.getColor();
         ctx.beginPath();
-        ctx.arc(this.x, canvasHeight - this.y, 3, 0, Math.PI * 2);
+        ctx.arc(this.x, canvasHeight - this.y, 4, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Special effects for certain weapons
+        if (this.type === 'nuke') {
+            ctx.strokeStyle = 'yellow';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, canvasHeight - this.y, 6, 0, Math.PI * 2);
+            ctx.stroke();
+        }
     }
 
     private getColor(): string {
@@ -258,6 +370,10 @@ export class Projectile {
             case 'napalm': return '#FF4500';
             case 'nuke': return '#00FF00';
             case 'blackhole': return '#000000';
+            case 'mirv': return '#FF00FF'; // Multiple Independent Reentry Vehicle
+            case 'laser': return '#00FFFF';
+            case 'funky': return '#FFD700'; // Bouncing bomb
+            case 'digger': return '#8B4513'; // Tunneling weapon
             default: return '#333333';
         }
     }
@@ -265,8 +381,12 @@ export class Projectile {
     getExplosionRadius(): number {
         switch (this.type) {
             case 'napalm': return 40;
-            case 'nuke': return 80;
+            case 'nuke': return 100;
             case 'blackhole': return 60;
+            case 'mirv': return 25;
+            case 'laser': return 5;
+            case 'funky': return 30;
+            case 'digger': return 35;
             default: return 30;
         }
     }
@@ -274,8 +394,12 @@ export class Projectile {
     getDamage(): number {
         switch (this.type) {
             case 'napalm': return 40;
-            case 'nuke': return 80;
+            case 'nuke': return 100;
             case 'blackhole': return 60;
+            case 'mirv': return 25;
+            case 'laser': return 50;
+            case 'funky': return 35;
+            case 'digger': return 40;
             default: return 30;
         }
     }

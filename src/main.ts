@@ -1,4 +1,4 @@
-import { Terrain, Tank, Projectile, Explosion } from './game.js';
+import { Terrain, Tank, Projectile, Explosion, GameEnvironment } from './game.js';
 
 class GameController {
     private canvas: HTMLCanvasElement;
@@ -7,6 +7,7 @@ class GameController {
     private tanks: Tank[] = [];
     private projectile: Projectile | null = null;
     private explosions: Explosion[] = [];
+    private environment: GameEnvironment;
     private currentPlayerIndex: number = 0;
     private gameMode: '1player' | '2player' = '1player';
     private gameState: 'menu' | 'playing' | 'shop' | 'gameover' = 'menu';
@@ -18,6 +19,7 @@ class GameController {
     constructor() {
         this.canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
         this.ctx = this.canvas.getContext('2d')!;
+        this.environment = new GameEnvironment();
         this.setupCanvas();
         this.setupEventListeners();
         this.registerServiceWorker();
@@ -131,26 +133,36 @@ class GameController {
         this.round = 1;
         this.playerMoney = [1000, 1000];
         this.currentPlayerIndex = 0;
-        this.initializeLevel();
         this.showScreen('game');
-        this.updateHUD();
-        this.gameLoop(0);
+        
+        // Ensure canvas dimensions are set after screen is visible
+        requestAnimationFrame(() => {
+            this.canvas.width = this.canvas.offsetWidth;
+            this.canvas.height = this.canvas.offsetHeight;
+            this.initializeLevel();
+            this.updateHUD();
+            this.gameLoop(0);
+        });
     }
 
     private initializeLevel(): void {
         // Create terrain
         this.terrain = new Terrain(this.canvas.width, this.canvas.height * 0.6);
         
+        // Generate new wind for this round
+        this.environment.generateWind();
+        
         // Create tanks
         this.tanks = [];
         const tank1X = this.canvas.width * 0.2;
         const tank1Y = this.terrain.getHeight(tank1X) + 10;
-        this.tanks.push(new Tank(tank1X, tank1Y, '#0000FF', false));
+        this.tanks.push(new Tank(tank1X, tank1Y, '#0000FF', 'Player 1', false));
         
         const tank2X = this.canvas.width * 0.8;
         const tank2Y = this.terrain.getHeight(tank2X) + 10;
         const isAI = this.gameMode === '1player';
-        this.tanks.push(new Tank(tank2X, tank2Y, '#FF0000', isAI));
+        const tank2Name = isAI ? 'Computer' : 'Player 2';
+        this.tanks.push(new Tank(tank2X, tank2Y, '#FF0000', tank2Name, isAI));
         
         this.projectile = null;
         this.explosions = [];
@@ -185,6 +197,10 @@ class GameController {
     private getWeaponCost(weaponType: string): number {
         switch (weaponType) {
             case 'napalm': return 100;
+            case 'mirv': return 200;
+            case 'funky': return 150;
+            case 'laser': return 300;
+            case 'digger': return 250;
             case 'nuke': return 500;
             case 'blackhole': return 1000;
             default: return 0;
@@ -193,9 +209,15 @@ class GameController {
 
     private nextRound(): void {
         this.round++;
-        this.initializeLevel();
         this.showScreen('game');
-        this.updateHUD();
+        
+        // Ensure canvas dimensions are set
+        requestAnimationFrame(() => {
+            this.canvas.width = this.canvas.offsetWidth;
+            this.canvas.height = this.canvas.offsetHeight;
+            this.initializeLevel();
+            this.updateHUD();
+        });
     }
 
     private showScreen(screen: 'menu' | 'game' | 'shop' | 'gameover'): void {
@@ -259,7 +281,7 @@ class GameController {
     private update(dt: number): void {
         // Update projectile
         if (this.projectile) {
-            this.projectile.update(dt);
+            this.projectile.update(dt, this.environment.gravity, this.environment.windSpeed);
             
             // Check collision with terrain
             const terrainHeight = this.terrain!.getHeight(this.projectile.x);
@@ -400,6 +422,50 @@ class GameController {
         for (const explosion of this.explosions) {
             explosion.render(this.ctx, this.canvas.height);
         }
+        
+        // Render wind indicator
+        this.renderWindIndicator();
+    }
+
+    private renderWindIndicator(): void {
+        const x = this.canvas.width / 2;
+        const y = 30;
+        
+        // Wind label
+        this.ctx.fillStyle = 'white';
+        this.ctx.strokeStyle = 'black';
+        this.ctx.lineWidth = 2;
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.strokeText('Wind', x, y);
+        this.ctx.fillText('Wind', x, y);
+        
+        // Wind arrow
+        const arrowLength = Math.abs(this.environment.windSpeed) * 15;
+        const direction = this.environment.windSpeed > 0 ? 1 : -1;
+        
+        this.ctx.strokeStyle = 'white';
+        this.ctx.fillStyle = 'white';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x, y + 10);
+        this.ctx.lineTo(x + arrowLength * direction, y + 10);
+        this.ctx.stroke();
+        
+        // Arrow head
+        if (arrowLength > 5) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x + arrowLength * direction, y + 10);
+            this.ctx.lineTo(x + (arrowLength - 5) * direction, y + 5);
+            this.ctx.lineTo(x + (arrowLength - 5) * direction, y + 15);
+            this.ctx.closePath();
+            this.ctx.fill();
+        }
+        
+        // Wind speed text
+        this.ctx.font = '12px Arial';
+        this.ctx.strokeText(this.environment.windSpeed.toFixed(1), x, y + 30);
+        this.ctx.fillText(this.environment.windSpeed.toFixed(1), x, y + 30);
     }
 }
 
