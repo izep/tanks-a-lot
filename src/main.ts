@@ -1,4 +1,5 @@
 import { Terrain, Tank, Projectile, Explosion, GameEnvironment } from './game.js';
+import { GAME_CONFIG, WEAPONS, SHOP_ITEMS, VALID_WEAPON_TYPES, VALID_SHOP_ITEM_TYPES } from './constants.js';
 
 class GameController {
     private canvas: HTMLCanvasElement;
@@ -17,8 +18,18 @@ class GameController {
     private animationId: number = 0;
 
     constructor() {
-        this.canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
-        this.ctx = this.canvas.getContext('2d')!;
+        const canvasElement = document.getElementById('game-canvas');
+        if (!canvasElement || !(canvasElement instanceof HTMLCanvasElement)) {
+            throw new Error('Game canvas element not found');
+        }
+        this.canvas = canvasElement;
+
+        const ctx = this.canvas.getContext('2d');
+        if (!ctx) {
+            throw new Error('Failed to get 2D rendering context');
+        }
+        this.ctx = ctx;
+
         this.environment = new GameEnvironment();
         this.setupCanvas();
         this.setupEventListeners();
@@ -54,17 +65,35 @@ class GameController {
 
         // Game controls
         document.getElementById('angle')?.addEventListener('input', (e) => {
-            const value = parseInt((e.target as HTMLInputElement).value);
-            document.getElementById('angle-value')!.textContent = value.toString();
-            if (!this.tanks[this.currentPlayerIndex].isAI) {
+            const value = parseInt((e.target as HTMLInputElement).value, 10);
+            if (isNaN(value)) {
+                console.error('Invalid angle value');
+                return;
+            }
+
+            const angleValueElement = document.getElementById('angle-value');
+            if (angleValueElement) {
+                angleValueElement.textContent = value.toString();
+            }
+
+            if (this.isValidTankIndex(this.currentPlayerIndex) && !this.tanks[this.currentPlayerIndex].isAI) {
                 this.tanks[this.currentPlayerIndex].setAngle(value);
             }
         });
 
         document.getElementById('power')?.addEventListener('input', (e) => {
-            const value = parseInt((e.target as HTMLInputElement).value);
-            document.getElementById('power-value')!.textContent = value.toString();
-            if (!this.tanks[this.currentPlayerIndex].isAI) {
+            const value = parseInt((e.target as HTMLInputElement).value, 10);
+            if (isNaN(value)) {
+                console.error('Invalid power value');
+                return;
+            }
+
+            const powerValueElement = document.getElementById('power-value');
+            if (powerValueElement) {
+                powerValueElement.textContent = value.toString();
+            }
+
+            if (this.isValidTankIndex(this.currentPlayerIndex) && !this.tanks[this.currentPlayerIndex].isAI) {
                 this.tanks[this.currentPlayerIndex].setPower(value);
             }
         });
@@ -81,35 +110,42 @@ class GameController {
         document.getElementById('btn-menu')?.addEventListener('click', () => {
             this.showScreen('menu');
         });
-        
+
         // Shop buy buttons
         document.querySelectorAll('.buy-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const item = (e.target as HTMLElement).getAttribute('data-item');
-                this.buyItem(item!);
+                if (!item) {
+                    console.error('No item specified in buy button');
+                    return;
+                }
+                this.buyItem(item);
             });
         });
 
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
             if (this.gameState === 'playing' && !this.projectile) {
+                if (!this.isValidTankIndex(this.currentPlayerIndex)) {
+                    return;
+                }
                 const currentTank = this.tanks[this.currentPlayerIndex];
                 if (!currentTank.isAI) {
                     switch (e.key) {
                         case 'ArrowLeft':
-                            currentTank.setAngle(currentTank.angle + 5);
+                            currentTank.setAngle(currentTank.angle + GAME_CONFIG.ANGLE_STEP);
                             this.updateAngleDisplay();
                             break;
                         case 'ArrowRight':
-                            currentTank.setAngle(currentTank.angle - 5);
+                            currentTank.setAngle(currentTank.angle - GAME_CONFIG.ANGLE_STEP);
                             this.updateAngleDisplay();
                             break;
                         case 'ArrowUp':
-                            currentTank.setPower(currentTank.power + 5);
+                            currentTank.setPower(currentTank.power + GAME_CONFIG.POWER_STEP);
                             this.updatePowerDisplay();
                             break;
                         case 'ArrowDown':
-                            currentTank.setPower(currentTank.power - 5);
+                            currentTank.setPower(currentTank.power - GAME_CONFIG.POWER_STEP);
                             this.updatePowerDisplay();
                             break;
                         case ' ':
@@ -124,25 +160,43 @@ class GameController {
     }
 
     private updateAngleDisplay(): void {
+        if (!this.isValidTankIndex(this.currentPlayerIndex)) {
+            return;
+        }
         const angle = this.tanks[this.currentPlayerIndex].angle;
-        document.getElementById('angle-value')!.textContent = Math.round(angle).toString();
-        (document.getElementById('angle') as HTMLInputElement).value = Math.round(angle).toString();
+        const angleValueElement = document.getElementById('angle-value');
+        if (angleValueElement) {
+            angleValueElement.textContent = Math.round(angle).toString();
+        }
+        const angleInput = document.getElementById('angle') as HTMLInputElement;
+        if (angleInput) {
+            angleInput.value = Math.round(angle).toString();
+        }
     }
 
     private updatePowerDisplay(): void {
+        if (!this.isValidTankIndex(this.currentPlayerIndex)) {
+            return;
+        }
         const power = this.tanks[this.currentPlayerIndex].power;
-        document.getElementById('power-value')!.textContent = Math.round(power).toString();
-        (document.getElementById('power') as HTMLInputElement).value = Math.round(power).toString();
+        const powerValueElement = document.getElementById('power-value');
+        if (powerValueElement) {
+            powerValueElement.textContent = Math.round(power).toString();
+        }
+        const powerInput = document.getElementById('power') as HTMLInputElement;
+        if (powerInput) {
+            powerInput.value = Math.round(power).toString();
+        }
     }
 
     private startGame(mode: '1player' | '2player'): void {
         this.gameMode = mode;
         this.gameState = 'playing';
         this.round = 1;
-        this.playerMoney = [1000, 1000];
+        this.playerMoney = [GAME_CONFIG.INITIAL_MONEY, GAME_CONFIG.INITIAL_MONEY];
         this.currentPlayerIndex = 0;
         this.showScreen('game');
-        
+
         // Ensure canvas dimensions are set after screen is visible
         requestAnimationFrame(() => {
             this.canvas.width = this.canvas.offsetWidth;
@@ -155,44 +209,67 @@ class GameController {
 
     private initializeLevel(): void {
         // Create terrain
-        this.terrain = new Terrain(this.canvas.width, this.canvas.height * 0.6);
-        
+        this.terrain = new Terrain(this.canvas.width, this.canvas.height * GAME_CONFIG.TERRAIN_HEIGHT_RATIO);
+
         // Generate new wind for this round
         this.environment.generateWind();
-        
+
         // Create tanks
         this.tanks = [];
-        const tank1X = this.canvas.width * 0.2;
-        const tank1Y = this.terrain.getHeight(tank1X) + 10;
+        const tank1X = this.canvas.width * GAME_CONFIG.TANK1_X_RATIO;
+        const tank1Y = this.terrain.getHeight(tank1X) + GAME_CONFIG.TANK_Y_OFFSET;
         this.tanks.push(new Tank(tank1X, tank1Y, '#0000FF', 'Player 1', false));
-        
-        const tank2X = this.canvas.width * 0.8;
-        const tank2Y = this.terrain.getHeight(tank2X) + 10;
+
+        const tank2X = this.canvas.width * GAME_CONFIG.TANK2_X_RATIO;
+        const tank2Y = this.terrain.getHeight(tank2X) + GAME_CONFIG.TANK_Y_OFFSET;
         const isAI = this.gameMode === '1player';
         const tank2Name = isAI ? 'Computer' : 'Player 2';
         this.tanks.push(new Tank(tank2X, tank2Y, '#FF0000', tank2Name, isAI));
-        
+
         this.projectile = null;
         this.explosions = [];
     }
 
     private fire(): void {
         if (this.projectile) return;
-        
+
+        if (!this.isValidTankIndex(this.currentPlayerIndex)) {
+            console.error('Invalid tank index when firing');
+            return;
+        }
+
         const currentTank = this.tanks[this.currentPlayerIndex];
         const weaponSelect = document.getElementById('weapon') as HTMLSelectElement;
+        if (!weaponSelect) {
+            console.error('Weapon select element not found');
+            return;
+        }
         const weaponType = weaponSelect.value;
-        
+
+        // Validate weapon type
+        if (!VALID_WEAPON_TYPES.includes(weaponType)) {
+            console.error(`Invalid weapon type: ${weaponType}`);
+            alert('Invalid weapon selected!');
+            return;
+        }
+
+        // Get weapon config
+        const weapon = WEAPONS.find(w => w.value === weaponType);
+        if (!weapon) {
+            console.error(`Weapon config not found for: ${weaponType}`);
+            return;
+        }
+
         // Check if player can afford the weapon
-        const cost = this.getWeaponCost(weaponType);
+        const cost = weapon.cost;
         if (this.playerMoney[this.currentPlayerIndex] < cost) {
             alert('Not enough money for this weapon!');
             return;
         }
-        
+
         this.playerMoney[this.currentPlayerIndex] -= cost;
         this.updateHUD();
-        
+
         this.projectile = new Projectile(
             currentTank.x,
             currentTank.y,
@@ -202,23 +279,10 @@ class GameController {
         );
     }
 
-    private getWeaponCost(weaponType: string): number {
-        switch (weaponType) {
-            case 'napalm': return 100;
-            case 'mirv': return 200;
-            case 'funky': return 150;
-            case 'laser': return 300;
-            case 'digger': return 250;
-            case 'nuke': return 500;
-            case 'blackhole': return 1000;
-            default: return 0;
-        }
-    }
-
     private nextRound(): void {
         this.round++;
         this.showScreen('game');
-        
+
         // Ensure canvas dimensions are set
         requestAnimationFrame(() => {
             this.canvas.width = this.canvas.offsetWidth;
@@ -230,7 +294,7 @@ class GameController {
 
     private showScreen(screen: 'menu' | 'game' | 'shop' | 'gameover'): void {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        
+
         switch (screen) {
             case 'menu':
                 document.getElementById('menu-screen')?.classList.add('active');
@@ -255,162 +319,223 @@ class GameController {
 
     private showShop(): void {
         const winner = this.tanks.findIndex(t => t.isAlive());
-        const results = document.getElementById('round-results')!;
-        
-        if (winner >= 0) {
-            results.textContent = `Round ${this.round} - ${this.tanks[winner].name} wins! +$500`;
-            this.playerMoney[winner] += 500;
+        const results = document.getElementById('round-results');
+
+        if (winner >= 0 && this.isValidTankIndex(winner)) {
+            if (results) {
+                results.textContent = `Round ${this.round} - ${this.tanks[winner].name} wins! +$${GAME_CONFIG.ROUND_WIN_REWARD}`;
+            }
+            if (winner < this.playerMoney.length) {
+                this.playerMoney[winner] += GAME_CONFIG.ROUND_WIN_REWARD;
+            }
         }
     }
-    
+
     private buyItem(item: string): void {
-        const currentPlayerIndex = this.tanks.findIndex(t => t.isAlive());
-        if (currentPlayerIndex < 0) return;
-        
-        let cost = 0;
-        let success = false;
-        
-        switch (item) {
-            case 'shield':
-                cost = 200;
-                if (this.playerMoney[currentPlayerIndex] >= cost) {
-                    this.tanks[currentPlayerIndex].addShield(50);
-                    this.playerMoney[currentPlayerIndex] -= cost;
-                    success = true;
-                }
-                break;
-            case 'repair':
-                cost = 150;
-                if (this.playerMoney[currentPlayerIndex] >= cost) {
-                    this.tanks[currentPlayerIndex].repair(30);
-                    this.playerMoney[currentPlayerIndex] -= cost;
-                    success = true;
-                }
-                break;
+        // Validate item type
+        if (!VALID_SHOP_ITEM_TYPES.includes(item)) {
+            console.error(`Invalid shop item: ${item}`);
+            alert('Invalid item selected!');
+            return;
         }
-        
+
+        const currentPlayerIndex = this.tanks.findIndex(t => t.isAlive());
+        if (currentPlayerIndex < 0 || !this.isValidTankIndex(currentPlayerIndex)) {
+            console.error('No alive tank found for purchase');
+            return;
+        }
+
+        if (currentPlayerIndex >= this.playerMoney.length) {
+            console.error('Player money array index out of bounds');
+            return;
+        }
+
+        // Find shop item config
+        const shopItem = SHOP_ITEMS.find(i => i.value === item);
+        if (!shopItem) {
+            console.error(`Shop item config not found for: ${item}`);
+            return;
+        }
+
+        const cost = shopItem.cost;
+        let success = false;
+
+        if (this.playerMoney[currentPlayerIndex] >= cost) {
+            switch (item) {
+                case 'shield':
+                    this.tanks[currentPlayerIndex].addShield(GAME_CONFIG.SHIELD_AMOUNT);
+                    this.playerMoney[currentPlayerIndex] -= cost;
+                    success = true;
+                    break;
+                case 'repair':
+                    this.tanks[currentPlayerIndex].repair(GAME_CONFIG.REPAIR_AMOUNT);
+                    this.playerMoney[currentPlayerIndex] -= cost;
+                    success = true;
+                    break;
+            }
+        }
+
         if (success) {
-            alert(`Purchased ${item}! Remaining: $${this.playerMoney[currentPlayerIndex]}`);
+            alert(`Purchased ${shopItem.name}! Remaining: $${this.playerMoney[currentPlayerIndex]}`);
         } else {
             alert('Not enough money!');
         }
     }
 
     private updateHUD(): void {
-        const playerName = this.gameMode === '1player' && this.currentPlayerIndex === 1 
-            ? 'Computer' 
+        if (!this.isValidTankIndex(this.currentPlayerIndex)) {
+            return;
+        }
+
+        const playerName = this.gameMode === '1player' && this.currentPlayerIndex === 1
+            ? 'Computer'
             : `Player ${this.currentPlayerIndex + 1}`;
-        document.getElementById('current-player')!.textContent = playerName;
-        document.getElementById('money')!.textContent = `Money: $${this.playerMoney[this.currentPlayerIndex]}`;
-        
+
+        const currentPlayerElement = document.getElementById('current-player');
+        if (currentPlayerElement) {
+            currentPlayerElement.textContent = playerName;
+        }
+
+        const moneyElement = document.getElementById('money');
+        if (moneyElement && this.currentPlayerIndex < this.playerMoney.length) {
+            moneyElement.textContent = `Money: $${this.playerMoney[this.currentPlayerIndex]}`;
+        }
+
         this.updateAngleDisplay();
         this.updatePowerDisplay();
     }
 
     private gameLoop(timestamp: number): void {
         if (this.gameState !== 'playing') return;
-        
-        const dt = this.lastTime ? Math.min((timestamp - this.lastTime) / 1000, 0.1) : 0.016;
+
+        const dt = this.lastTime
+            ? Math.min((timestamp - this.lastTime) / 1000, GAME_CONFIG.MAX_DELTA_TIME)
+            : GAME_CONFIG.DEFAULT_DELTA_TIME;
         this.lastTime = timestamp;
-        
+
         this.update(dt);
         this.render();
-        
+
         this.animationId = requestAnimationFrame((t) => this.gameLoop(t));
     }
 
     private update(dt: number): void {
         // Update projectile
         if (this.projectile) {
+            if (!this.terrain) {
+                console.error('Terrain not initialized');
+                return;
+            }
+
             this.projectile.update(dt, this.environment.gravity, this.environment.windSpeed);
-            
+
             // Check collision with terrain
-            const terrainHeight = this.terrain!.getHeight(this.projectile.x);
+            const terrainHeight = this.terrain.getHeight(this.projectile.x);
             if (this.projectile.y <= terrainHeight || this.projectile.x < 0 || this.projectile.x > this.canvas.width) {
                 // Create explosion
                 const explosion = new Explosion(this.projectile.x, this.projectile.y, this.projectile.type);
                 this.explosions.push(explosion);
-                
+
                 // Damage terrain
-                this.terrain!.explode(this.projectile.x, this.projectile.y, this.projectile.getExplosionRadius());
-                
+                this.terrain.explode(this.projectile.x, this.projectile.y, this.projectile.getExplosionRadius());
+
                 // Check damage to tanks
                 for (const tank of this.tanks) {
                     const dist = Math.sqrt(
-                        Math.pow(tank.x - this.projectile.x, 2) + 
+                        Math.pow(tank.x - this.projectile.x, 2) +
                         Math.pow(tank.y - this.projectile.y, 2)
                     );
-                    
+
                     if (dist < this.projectile.getExplosionRadius()) {
                         const damage = this.projectile.getDamage() * (1 - dist / this.projectile.getExplosionRadius());
                         tank.takeDamage(damage);
                     }
                 }
-                
+
                 this.projectile = null;
-                
+
                 // Check for game over
                 const aliveTanks = this.tanks.filter(t => t.isAlive());
                 if (aliveTanks.length === 1) {
                     setTimeout(() => {
                         const winnerIndex = this.tanks.findIndex(t => t.isAlive());
                         this.endRound(winnerIndex);
-                    }, 2000);
+                    }, GAME_CONFIG.EXPLOSION_DELAY);
                 } else if (aliveTanks.length === 0) {
                     setTimeout(() => {
                         this.endRound(-1);
-                    }, 2000);
+                    }, GAME_CONFIG.EXPLOSION_DELAY);
                 } else {
                     // Next player's turn
                     setTimeout(() => {
                         this.nextTurn();
-                    }, 1000);
+                    }, GAME_CONFIG.TURN_DELAY);
                 }
             }
         }
-        
+
         // Update explosions
         this.explosions = this.explosions.filter(e => e.update(dt));
-        
+
         // Update tank positions to match terrain
-        for (const tank of this.tanks) {
-            if (tank.isAlive()) {
-                tank.y = this.terrain!.getHeight(tank.x) + 10;
+        if (this.terrain) {
+            for (const tank of this.tanks) {
+                if (tank.isAlive()) {
+                    tank.y = this.terrain.getHeight(tank.x) + GAME_CONFIG.TANK_Y_OFFSET;
+                }
             }
         }
     }
 
     private nextTurn(): void {
-        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.tanks.length;
-        
-        // Skip dead tanks
-        while (!this.tanks[this.currentPlayerIndex].isAlive()) {
-            this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.tanks.length;
+        if (this.tanks.length === 0) {
+            console.error('No tanks available for next turn');
+            return;
         }
-        
+
+        this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.tanks.length;
+
+        // Skip dead tanks
+        let attempts = 0;
+        const maxAttempts = this.tanks.length;
+        while (this.isValidTankIndex(this.currentPlayerIndex) && !this.tanks[this.currentPlayerIndex].isAlive() && attempts < maxAttempts) {
+            this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.tanks.length;
+            attempts++;
+        }
+
+        if (!this.isValidTankIndex(this.currentPlayerIndex)) {
+            console.error('No alive tanks found for next turn');
+            return;
+        }
+
         this.updateHUD();
-        
+
         // If AI turn, make it shoot after a delay
         if (this.tanks[this.currentPlayerIndex].isAI) {
             setTimeout(() => {
                 this.makeAIMove();
-            }, 1500);
+            }, GAME_CONFIG.AI_THINK_DELAY);
         }
     }
 
     private makeAIMove(): void {
+        if (!this.isValidTankIndex(this.currentPlayerIndex)) {
+            console.error('Invalid tank index for AI move');
+            return;
+        }
+
         const aiTank = this.tanks[this.currentPlayerIndex];
         const targetTank = this.tanks.find(t => !t.isAI && t.isAlive());
-        
+
         if (targetTank) {
             const decision = aiTank.makeAIDecision(targetTank.x, targetTank.y);
             aiTank.setAngle(decision.angle);
             aiTank.setPower(decision.power);
             this.updateHUD();
-            
+
             setTimeout(() => {
                 this.fire();
-            }, 500);
+            }, GAME_CONFIG.AI_SHOOT_DELAY);
         }
     }
 
@@ -425,10 +550,16 @@ class GameController {
     }
 
     private gameOver(winnerIndex: number): void {
-        const winnerText = document.getElementById('winner-text')!;
+        const winnerText = document.getElementById('winner-text');
+        if (!winnerText) {
+            console.error('Winner text element not found');
+            this.showScreen('gameover');
+            return;
+        }
+
         if (winnerIndex >= 0) {
-            const winnerName = this.gameMode === '1player' && winnerIndex === 1 
-                ? 'Computer' 
+            const winnerName = this.gameMode === '1player' && winnerIndex === 1
+                ? 'Computer'
                 : `Player ${winnerIndex + 1}`;
             winnerText.textContent = `${winnerName} wins!`;
         } else {
@@ -441,37 +572,41 @@ class GameController {
         // Clear canvas
         this.ctx.fillStyle = '#87CEEB';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
+
         // Render terrain
         if (this.terrain) {
             this.terrain.render(this.ctx, this.canvas.height);
         }
-        
+
         // Render tanks
         for (const tank of this.tanks) {
             if (tank.isAlive()) {
                 tank.render(this.ctx, this.canvas.height);
             }
         }
-        
+
         // Render projectile
         if (this.projectile) {
             this.projectile.render(this.ctx, this.canvas.height);
         }
-        
+
         // Render explosions
         for (const explosion of this.explosions) {
             explosion.render(this.ctx, this.canvas.height);
         }
-        
+
         // Render wind indicator
         this.renderWindIndicator();
+    }
+
+    private isValidTankIndex(index: number): boolean {
+        return index >= 0 && index < this.tanks.length && this.tanks[index] !== undefined;
     }
 
     private renderWindIndicator(): void {
         const x = this.canvas.width / 2;
         const y = 30;
-        
+
         // Wind label
         this.ctx.fillStyle = 'white';
         this.ctx.strokeStyle = 'black';
@@ -480,11 +615,11 @@ class GameController {
         this.ctx.textAlign = 'center';
         this.ctx.strokeText('Wind', x, y);
         this.ctx.fillText('Wind', x, y);
-        
+
         // Wind arrow
         const arrowLength = Math.abs(this.environment.windSpeed) * 15;
         const direction = this.environment.windSpeed > 0 ? 1 : -1;
-        
+
         this.ctx.strokeStyle = 'white';
         this.ctx.fillStyle = 'white';
         this.ctx.lineWidth = 2;
@@ -492,7 +627,7 @@ class GameController {
         this.ctx.moveTo(x, y + 10);
         this.ctx.lineTo(x + arrowLength * direction, y + 10);
         this.ctx.stroke();
-        
+
         // Arrow head
         if (arrowLength > 5) {
             this.ctx.beginPath();
@@ -502,7 +637,7 @@ class GameController {
             this.ctx.closePath();
             this.ctx.fill();
         }
-        
+
         // Wind speed text
         this.ctx.font = '12px Arial';
         this.ctx.strokeText(this.environment.windSpeed.toFixed(1), x, y + 30);
