@@ -8,7 +8,19 @@ const urlsToCache = [
   './manifest.json'
 ];
 
+// Check if we're in development mode (localhost)
+const isDevelopment = self.location.hostname === 'localhost' ||
+                      self.location.hostname === '127.0.0.1' ||
+                      self.location.hostname === '[::1]';
+
 self.addEventListener('install', (event) => {
+  // In development, skip waiting and activate immediately
+  if (isDevelopment) {
+    console.log('[Service Worker] Development mode: Skipping cache installation');
+    self.skipWaiting();
+    return;
+  }
+
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(urlsToCache))
@@ -20,6 +32,12 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // In development, always fetch from network (bypass cache)
+  if (isDevelopment) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {

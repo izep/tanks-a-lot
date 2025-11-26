@@ -51,4 +51,15 @@ describe('DiggerProjectile', () => {
         expect(projectile.vx).toBe(projectile.vx); // Should remain same as initial or changed by super.update
         expect(projectile.vy).toBe(projectile.vy); // Should remain same as initial or changed by super.update
     });
+
+    it('should set shouldExplode after tunneling time threshold', () => {
+        const projectile = new DiggerProjectile(0, 0, 45, 80, 'digger', false);
+        const terrain = new Terrain(200, 150);
+        vi.spyOn(terrain as any, 'getHeight').mockReturnValue(50);
+        projectile.y = 40; // underground
+        for (let i = 0; i < 70 && !projectile.shouldExplode; i++) {
+            projectile.update(0.016, 0.5, 0, terrain);
+        }
+        expect(projectile.shouldExplode).toBe(true);
+    });
 });

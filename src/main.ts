@@ -814,8 +814,19 @@ class GameController {
                             projectilesToRemove.push(proj);
                             continue;
                         }
+                        // Check end conditions signaled by projectile
+                        if (proj.shouldExplode) {
+                            this.handleProjectileExplosion(proj, terrainHeight);
+                            projectilesToRemove.push(proj);
+                            continue;
+                        }
                         // Otherwise, the DiggerProjectile's own update method handles tunneling.
-                        // We do not explode it here, but let it continue to tunnel.
+                    }
+                    // Allow explosion even if it surfaces after tunneling
+                    if (proj.shouldExplode) {
+                        this.handleProjectileExplosion(proj, terrainHeight);
+                        projectilesToRemove.push(proj);
+                        continue;
                     }
                     // If out of bounds and still active (finished tunneling or never hit terrain)
                     if (outOfBounds) {
