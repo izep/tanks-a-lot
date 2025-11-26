@@ -11,12 +11,18 @@
 </head>
 <body>
     <div id="game-container">
+        <div id="toast-container"></div>
         <div id="menu-screen" class="screen active">
             <h1>Tanks-A-Lot</h1>
             <button id="btn-1player">1 Player</button>
             <button id="btn-2player">2 Players</button>
+            <div id="ai-settings">
+                <label for="ai-profile">Computer Skill</label>
+                <select id="ai-profile"></select>
+                <p id="ai-profile-description">Pick an AI style before starting a 1 player match.</p>
+            </div>
         </div>
-        
+
         <div id="game-screen" class="screen">
             <div id="hud">
                 <div id="player-info">
@@ -41,16 +47,27 @@
                             <option value="funky">Funky Bomb ($150)</option>
                             <option value="laser">Laser ($300)</option>
                             <option value="digger">Digger ($250)</option>
+                            <option value="babydigger">Baby Digger ($150)</option>
                             <option value="nuke">Nuke ($500)</option>
                             <option value="blackhole">Black Hole ($1000)</option>
+                            <option value="roller">Roller ($300)</option>
+                            <option value="babyroller">Baby Roller ($200)</option>
+                            <option value="dirtclod">Dirt Clod ($250)</option>
+                            <option value="dirtball">Dirt Ball ($250)</option>
+                            <option value="riotcharge">Riot Charge ($100)</option>
+                            <option value="tracer">Tracer ($5)</option>
                         </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Triggers: <span id="contact-triggers-count">0</span></label>
+                        <button id="btn-toggle-contact-trigger">Off</button>
                     </div>
                 </div>
                 <button id="btn-fire">Fire!</button>
             </div>
             <canvas id="game-canvas"></canvas>
         </div>
-        
+
         <div id="shop-screen" class="screen">
             <h2>Round Complete!</h2>
             <div id="round-results"></div>
@@ -103,17 +120,23 @@
                     <p>Cost: $150</p>
                     <button class="buy-btn" data-item="repair">Buy Repair</button>
                 </div>
+                <div class="shop-item">
+                    <h4>Contact Triggers</h4>
+                    <p>Explode on impact. (25 triggers)</p>
+                    <p>Cost: $1000</p>
+                    <button class="buy-btn" data-item="contact_trigger">Buy Triggers</button>
+                </div>
             </div>
             <button id="btn-next-round">Next Round</button>
         </div>
-        
+
         <div id="game-over-screen" class="screen">
             <h1>Game Over</h1>
             <p id="winner-text"></p>
             <button id="btn-menu">Back to Menu</button>
         </div>
     </div>
-    
+
     <script type="module" src="main.js"></script>
 </body>
 </html>

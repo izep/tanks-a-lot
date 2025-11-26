@@ -22,16 +22,17 @@ export const GAME_CONFIG = {
 
     // Terrain
     TERRAIN_HEIGHT_RATIO: 0.6,
-    TERRAIN_SEGMENTS: 8,
+    TERRAIN_SEGMENTS: 10, // Increased for more hill variation
     TERRAIN_HEIGHT_MIN_RATIO: 0.2,
     TERRAIN_HEIGHT_MAX_RATIO: 0.6,
-    TERRAIN_NOISE_AMPLITUDE: 20,
+    TERRAIN_NOISE_AMPLITUDE: 10, // Restored some noise for texture
     TERRAIN_MAX_SLOPE: 3,
-    TERRAIN_SETTLE_ITERATIONS: 10,
+    TERRAIN_SETTLE_ITERATIONS: 25, // Moderate settling
 
     // Projectile
-    PROJECTILE_SPEED_MULTIPLIER: 0.15,
-    PROJECTILE_TRAIL_MAX_LENGTH: 20,
+    PROJECTILE_SPEED_MULTIPLIER: 0.1, // Controls physics/range
+    PROJECTILE_ANIMATION_SPEED_MULTIPLIER: 30.0, // Controls visual animation speed only
+    PROJECTILE_TRAIL_MAX_LENGTH: 200,
     WIND_EFFECT_MULTIPLIER: 0.01,
 
     // Explosion
@@ -91,7 +92,7 @@ export const WEAPONS: WeaponConfig[] = [
         cost: 100,
         damage: 40,
         radius: 40,
-        description: 'Creates spreading fire damage'
+        description: 'Explodes before hitting, creates spreading fire pools'
     },
     {
         name: 'MIRV',
@@ -99,7 +100,7 @@ export const WEAPONS: WeaponConfig[] = [
         cost: 200,
         damage: 25,
         radius: 25,
-        description: 'Multiple Independent Reentry Vehicle'
+        description: 'Splits into 5 warheads at peak altitude'
     },
     {
         name: 'Funky Bomb',
@@ -107,7 +108,7 @@ export const WEAPONS: WeaponConfig[] = [
         cost: 150,
         damage: 35,
         radius: 30,
-        description: 'Bouncing projectile'
+        description: 'Bounces 3 times before exploding'
     },
     {
         name: 'Laser',
@@ -123,7 +124,15 @@ export const WEAPONS: WeaponConfig[] = [
         cost: 250,
         damage: 40,
         radius: 35,
-        description: 'Tunnels through terrain'
+        description: 'Tunnels through terrain before exploding'
+    },
+    {
+        name: 'Baby Digger',
+        value: 'babydigger',
+        cost: 150,
+        damage: 25,
+        radius: 20,
+        description: 'Smaller tunneling weapon'
     },
     {
         name: 'Nuke',
@@ -140,6 +149,54 @@ export const WEAPONS: WeaponConfig[] = [
         damage: 60,
         radius: 60,
         description: 'Gravitational weapon'
+    },
+    {
+        name: 'Roller',
+        value: 'roller',
+        cost: 300,
+        damage: 30,
+        radius: 30,
+        description: 'Rolls downhill until hitting tank or valley'
+    },
+    {
+        name: 'Baby Roller',
+        value: 'babyroller',
+        cost: 200,
+        damage: 20,
+        radius: 20,
+        description: 'Smaller rolling projectile'
+    },
+    {
+        name: 'Dirt Clod',
+        value: 'dirtclod',
+        cost: 250,
+        damage: 20,
+        radius: 30,
+        description: 'Explodes into dirt sphere, buries enemies'
+    },
+    {
+        name: 'Dirt Ball',
+        value: 'dirtball',
+        cost: 250,
+        damage: 25,
+        radius: 40,
+        description: 'Larger dirt explosion'
+    },
+    {
+        name: 'Riot Charge',
+        value: 'riotcharge',
+        cost: 100,
+        damage: 0,
+        radius: 36,
+        description: 'Destroys wedge of dirt around turret (unbury self)'
+    },
+    {
+        name: 'Tracer',
+        value: 'tracer',
+        cost: 5,
+        damage: 0,
+        radius: 0,
+        description: 'Non-destructive targeting shot'
     }
 ] as const;
 
@@ -163,6 +220,12 @@ export const SHOP_ITEMS: ShopItemConfig[] = [
         value: 'repair',
         cost: 150,
         description: 'Restores 30 health'
+    },
+    {
+        name: 'Contact Trigger',
+        value: 'contact_trigger',
+        cost: 1000,
+        description: 'Explode on impact. (25 triggers)'
     }
 ] as const;
 
