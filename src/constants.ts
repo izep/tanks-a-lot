@@ -30,8 +30,8 @@ export const GAME_CONFIG = {
     TERRAIN_SETTLE_ITERATIONS: 25, // Moderate settling
 
     // Projectile
-    PROJECTILE_SPEED_MULTIPLIER: 0.1, // Controls physics/range
-    PROJECTILE_ANIMATION_SPEED_MULTIPLIER: 30.0, // Controls visual animation speed only
+    PROJECTILE_SPEED_MULTIPLIER: 0.3, // Controls physics/range
+    PROJECTILE_ANIMATION_SPEED_MULTIPLIER: 300.0, // Real-time speed factor for projectile simulation
     PROJECTILE_TRAIL_MAX_LENGTH: 200,
     WIND_EFFECT_MULTIPLIER: 0.01,
 
@@ -56,7 +56,7 @@ export const GAME_CONFIG = {
     ANGLE_MIN: 0,
     ANGLE_MAX: 180,
     POWER_MIN: 10,
-    POWER_MAX: 100,
+    POWER_MAX: 300,
 
     // Game loop
     MAX_DELTA_TIME: 0.1,

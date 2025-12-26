@@ -1,44 +1,79 @@
 import { GAME_CONFIG, WEAPONS } from '../constants.js';
 import { Terrain } from '../terrain.js';
 
+export interface ProjectileIntegrationStep {
+    steps: number;
+    subDt: number;
+}
+
+// Keep integration manageable while allowing high time scaling factors
+const MAX_PROJECTILE_SUB_STEPS = 2048;
+
+export function getProjectileIntegrationStep(dt: number): ProjectileIntegrationStep {
+    if (dt <= 0) {
+        return { steps: 0, subDt: 0 };
+    }
+
+    const timeScale = Math.max(1, GAME_CONFIG.PROJECTILE_ANIMATION_SPEED_MULTIPLIER);
+    const baseStep = GAME_CONFIG.DEFAULT_DELTA_TIME;
+    const safeBaseStep = baseStep > 0 ? baseStep : dt;
+    const desiredSubDt = safeBaseStep / timeScale;
+    const effectiveSubDt = desiredSubDt > 0 ? Math.min(dt, desiredSubDt) : dt;
+    if (effectiveSubDt <= 0) {
+        return { steps: 1, subDt: dt };
+    }
+
+    const tentativeSteps = Math.ceil(dt / effectiveSubDt);
+    const steps = Math.max(1, Math.min(MAX_PROJECTILE_SUB_STEPS, tentativeSteps));
+    const subDt = dt / steps;
+    return { steps, subDt };
+}
+
 export abstract class BaseProjectile {
     x: number;
     y: number;
     vx: number;
     vy: number;
-        type: string;
-        active: boolean;
-        trail: Array<{x: number, y: number}>;
-        useContactTrigger: boolean;
-    
-        constructor(x: number, y: number, angle: number, power: number, type: string, useContactTrigger: boolean = false) {
-            this.x = x;
-            this.y = y;
-            const angleRad = angle * Math.PI / 180;
-            const speed = power * GAME_CONFIG.PROJECTILE_SPEED_MULTIPLIER;
-            this.vx = Math.cos(angleRad) * speed;
-            this.vy = Math.sin(angleRad) * speed;
-            this.type = type;
-            this.active = true;
-            this.trail = [];
-            this.useContactTrigger = useContactTrigger;
-        }
+    type: string;
+    active: boolean;
+    trail: Array<{ x: number; y: number }>;
+    useContactTrigger: boolean;
+
+    constructor(x: number, y: number, angle: number, power: number, type: string, useContactTrigger: boolean = false) {
+        this.x = x;
+        this.y = y;
+        const angleRad = angle * Math.PI / 180;
+        const speed = power * GAME_CONFIG.PROJECTILE_SPEED_MULTIPLIER;
+        this.vx = Math.cos(angleRad) * speed;
+        this.vy = Math.sin(angleRad) * speed;
+        this.type = type;
+        this.active = true;
+        this.trail = [];
+        this.useContactTrigger = useContactTrigger;
+    }
 
     update(dt: number, gravity: number, windSpeed: number, terrain?: Terrain): void {
         // Store trail for visual effect
         if (this.trail.length >= GAME_CONFIG.PROJECTILE_TRAIL_MAX_LENGTH) {
             this.trail.shift();
         }
-        this.trail.push({x: this.x, y: this.y});
+        this.trail.push({ x: this.x, y: this.y });
 
-        // Apply physics
-        this.vy -= gravity * dt; // Gravity
-        this.vx += windSpeed * dt * GAME_CONFIG.WIND_EFFECT_MULTIPLIER;
+        const { steps, subDt } = getProjectileIntegrationStep(dt);
+        if (steps === 0 || subDt === 0) {
+            return;
+        }
 
-        // Apply position updates
-        const animationDt = dt * GAME_CONFIG.PROJECTILE_ANIMATION_SPEED_MULTIPLIER;
-        this.x += this.vx * animationDt;
-        this.y += this.vy * animationDt;
+        for (let i = 0; i < steps; i++) {
+            this.stepPhysics(subDt, gravity, windSpeed);
+        }
+    }
+
+    protected stepPhysics(stepDt: number, gravity: number, windSpeed: number): void {
+        this.vy -= gravity * stepDt;
+        this.vx += windSpeed * stepDt * GAME_CONFIG.WIND_EFFECT_MULTIPLIER;
+        this.x += this.vx * stepDt;
+        this.y += this.vy * stepDt;
     }
 
     /* c8 ignore start */

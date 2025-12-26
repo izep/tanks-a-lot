@@ -1,4 +1,5 @@
 import { GAME_CONFIG, WEAPONS } from '../constants.js';
+import { getProjectileIntegrationStep } from '../projectiles/BaseProjectile.js';
 import { GameEnvironment } from '../environment.js';
 import { Tank } from '../tank.js';
 import { Terrain } from '../terrain.js';
@@ -311,18 +312,21 @@ function simulateShot(
     let x = shooter.x;
     let y = shooter.y;
 
-    const dt = GAME_CONFIG.DEFAULT_DELTA_TIME;
-    const animationDt = dt * GAME_CONFIG.PROJECTILE_ANIMATION_SPEED_MULTIPLIER;
-    const maxIterations = 600;
+    // Use a coarser frame step for AI prediction while keeping physics stable via sub-steps
+    const simulationDt = 0.1;
+    const { steps, subDt } = getProjectileIntegrationStep(simulationDt);
+    const stepDt = steps > 0 ? subDt : simulationDt;
+    const maxSimulatedTime = 65; // seconds
+    const maxSteps = Math.ceil(maxSimulatedTime / stepDt);
 
-    for (let i = 0; i < maxIterations; i++) {
-        vy -= environment.gravity * dt;
-        vx += environment.windSpeed * dt * GAME_CONFIG.WIND_EFFECT_MULTIPLIER;
-        x += vx * animationDt;
-        y += vy * animationDt;
+    for (let i = 0; i < maxSteps; i++) {
+        vy -= environment.gravity * stepDt;
+        vx += environment.windSpeed * stepDt * GAME_CONFIG.WIND_EFFECT_MULTIPLIER;
+        x += vx * stepDt;
+        y += vy * stepDt;
 
         if (x < 0 || x > terrain.getWidth()) {
-            break;
+            return { impactX: x, impactY: y };
         }
 
         const ground = terrain.getHeight(x);

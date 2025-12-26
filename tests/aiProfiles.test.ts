@@ -4,6 +4,7 @@ import { Tank } from '../src/tank';
 import { Terrain } from '../src/terrain';
 import { GAME_CONFIG } from '../src/constants';
 import { AIDecisionContext, AI_PROFILE_OPTIONS, AIProfileId, getAIProfile } from '../src/ai/profiles';
+import { getProjectileIntegrationStep } from '../src/projectiles/BaseProjectile';
 
 const flatTerrain = {
     getHeight: () => 50,
@@ -125,17 +126,20 @@ function simulateShot(
     let x = context.shooter.x;
     let y = context.shooter.y;
 
-    const dt = GAME_CONFIG.DEFAULT_DELTA_TIME;
-    const animationDt = dt * GAME_CONFIG.PROJECTILE_ANIMATION_SPEED_MULTIPLIER;
+    const simulationDt = 0.1;
+    const { steps, subDt } = getProjectileIntegrationStep(simulationDt);
+    const stepDt = steps > 0 ? subDt : simulationDt;
+    const maxSimulatedTime = 65;
+    const maxSteps = Math.ceil(maxSimulatedTime / stepDt);
 
-    for (let i = 0; i < 600; i++) {
-        vy -= context.environment.gravity * dt;
-        vx += context.environment.windSpeed * dt * GAME_CONFIG.WIND_EFFECT_MULTIPLIER;
-        x += vx * animationDt;
-        y += vy * animationDt;
+    for (let i = 0; i < maxSteps; i++) {
+        vy -= context.environment.gravity * stepDt;
+        vx += context.environment.windSpeed * stepDt * GAME_CONFIG.WIND_EFFECT_MULTIPLIER;
+        x += vx * stepDt;
+        y += vy * stepDt;
 
         if (x < 0 || x > context.terrain.getWidth()) {
-            break;
+            return { impactX: x, impactY: y };
         }
 
         const ground = context.terrain.getHeight(x);

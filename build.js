@@ -15,7 +15,7 @@ if (!fs.existsSync(iconsDir)) {
 
 // Copy files from src to dist
 const srcDir = path.join(__dirname, 'src');
-const filesToCopy = ['index.html', 'styles.css', 'manifest.json', 'service-worker.js'];
+const filesToCopy = ['styles.css', 'manifest.json', 'service-worker.js'];
 
 filesToCopy.forEach(file => {
     const srcPath = path.join(srcDir, file);
@@ -28,6 +28,9 @@ filesToCopy.forEach(file => {
         console.warn(`Warning: ${file} not found in src directory`);
     }
 });
+
+// Note: Vite handles bundling Phaser code to dist/phaser/
+// This script just copies static assets
 
 // Copy icons if they exist
 const srcIconsDir = path.join(srcDir, 'icons');

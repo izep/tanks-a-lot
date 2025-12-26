@@ -1,4 +1,4 @@
-import { BaseProjectile } from './BaseProjectile.js';
+import { BaseProjectile, getProjectileIntegrationStep } from './BaseProjectile.js';
 import { Terrain } from '../terrain.js';
 import { GAME_CONFIG } from '../constants.js';
 
@@ -33,6 +33,11 @@ export class RollerProjectile extends BaseProjectile {
         }
 
         const terrainHeight = terrain.getHeight(this.x);
+        const { steps, subDt } = getProjectileIntegrationStep(dt);
+        if (steps === 0 || subDt === 0) {
+            return;
+        }
+        const baseDt = GAME_CONFIG.DEFAULT_DELTA_TIME;
         // Check if we are on or below the ground (within small margin)
         // NOTE: this.y is height from bottom (Math Y). terrainHeight is also height from bottom.
         if (this.y <= terrainHeight + 5) {
@@ -58,53 +63,60 @@ export class RollerProjectile extends BaseProjectile {
 
             // On ground, roll downhill
             // Calculate slope: positive means terrain goes up to the right (roll left), negative means down to the right (roll right)
-            const slopeRight = terrain.getHeight(this.x + 1) - terrain.getHeight(this.x);
-            const slopeLeft = terrain.getHeight(this.x) - terrain.getHeight(this.x - 1);
+            for (let i = 0; i < steps; i++) {
+                const slopeRight = terrain.getHeight(this.x + 1) - terrain.getHeight(this.x);
+                const slopeLeft = terrain.getHeight(this.x) - terrain.getHeight(this.x - 1);
 
-            // Roll in direction of steepest descent (negative slope means downhill)
-            // If slopeRight is negative, roll right. If slopeLeft is negative, roll left.
-            let acceleration = 0;
-            if (Math.abs(slopeRight) > Math.abs(slopeLeft)) {
-                // Steeper to the right
-                acceleration = -slopeRight * 0.8; // Increased acceleration
-            } else {
-                // Steeper to the left
-                acceleration = slopeLeft * 0.8; // Increased acceleration
+                // Roll in direction of downhill gradient. Negative slope values indicate downhill to the right.
+                const downhillRightMagnitude = Math.max(
+                    slopeRight < 0 ? -slopeRight : 0,
+                    slopeLeft  < 0 ? -slopeLeft  : 0
+                );
+                const downhillLeftMagnitude = Math.max(
+                    slopeRight > 0 ? slopeRight : 0,
+                    slopeLeft  > 0 ? slopeLeft  : 0
+                );
+                const acceleration = (downhillRightMagnitude - downhillLeftMagnitude) * 0.8;
+
+                this.rollVelocity += acceleration * subDt;
+                const frictionDecay = Math.pow(0.99, subDt / Math.max(baseDt, 1e-6));
+                this.rollVelocity *= frictionDecay;
+
+                // Prevent rolling uphill (allow small momentum over tiny bumps)
+                const UPHILL_THRESHOLD = 6; // Increased threshold significantly (was 4)
+                if (this.rollVelocity > 0 && slopeRight > UPHILL_THRESHOLD) {
+                    this.rollVelocity = 0;
+                } else if (this.rollVelocity < 0 && slopeLeft < -UPHILL_THRESHOLD) {
+                    this.rollVelocity = 0;
+                }
+
+                const downhillLeft = slopeLeft > UPHILL_THRESHOLD;
+                if (this.rollVelocity < 0 && slopeRight > UPHILL_THRESHOLD && !downhillLeft) {
+                    this.rollVelocity = 0;
+                }
+
+                // Clamp velocity to prevent excessive speed
+                this.rollVelocity = Math.max(-20, Math.min(20, this.rollVelocity)); // Increased max speed (was 15)
+
+                // Track velocity direction changes (oscillation detection)
+                const currentVelocitySign = this.rollVelocity > 0 ? 1 : (this.rollVelocity < 0 ? -1 : 0);
+                if (this.lastVelocitySign !== 0 && currentVelocitySign !== 0 &&
+                    this.lastVelocitySign !== currentVelocitySign) {
+                    this.velocityDirectionChanges++;
+                } else if (Math.abs(this.rollVelocity) < 0.1) {
+                    // Reset counter if velocity is near zero
+                    this.velocityDirectionChanges = Math.max(0, this.velocityDirectionChanges - 1);
+                }
+                this.lastVelocitySign = currentVelocitySign;
+
+                this.x += this.rollVelocity * subDt;
+                this.distanceTraveled += Math.abs(this.rollVelocity * subDt);
+                this.y = terrain.getHeight(this.x) + 5;
+                this.vx = 0;
+                this.vy = 0;
             }
 
-            this.rollVelocity += acceleration * dt;
-            this.rollVelocity *= 0.99; // Reduced friction further (was 0.98)
-
-            // Prevent rolling uphill (allow small momentum over tiny bumps)
-            const UPHILL_THRESHOLD = 6; // Increased threshold significantly (was 4)
-            if (this.rollVelocity > 0 && slopeRight > UPHILL_THRESHOLD) {
-                this.rollVelocity = 0;
-            } else if (this.rollVelocity < 0 && slopeLeft < -UPHILL_THRESHOLD) {
-                this.rollVelocity = 0;
-            }
-
-            // Clamp velocity to prevent excessive speed
-            this.rollVelocity = Math.max(-20, Math.min(20, this.rollVelocity)); // Increased max speed (was 15)
-
-            // Track velocity direction changes (oscillation detection)
-            const currentVelocitySign = this.rollVelocity > 0 ? 1 : (this.rollVelocity < 0 ? -1 : 0);
-            if (this.lastVelocitySign !== 0 && currentVelocitySign !== 0 &&
-                this.lastVelocitySign !== currentVelocitySign) {
-                this.velocityDirectionChanges++;
-            } else if (Math.abs(this.rollVelocity) < 0.1) {
-                // Reset counter if velocity is near zero
-                this.velocityDirectionChanges = Math.max(0, this.velocityDirectionChanges - 1);
-            }
-            this.lastVelocitySign = currentVelocitySign;
-
-            const oldX = this.x;
-            this.x += this.rollVelocity * dt * GAME_CONFIG.PROJECTILE_ANIMATION_SPEED_MULTIPLIER;
-            this.distanceTraveled += Math.abs(this.rollVelocity * dt * GAME_CONFIG.PROJECTILE_ANIMATION_SPEED_MULTIPLIER);
-            this.y = terrain.getHeight(this.x) + 5;
-            this.vx = 0;
-            this.vy = 0;
-
-            // Track position for stuck detection
+            // Track position for stuck detection using wall-clock time (for gameplay pacing)
             const currentTime = Date.now();
             if (currentTime - this.lastPositionCheck > 100) { // Check every 100ms
                 this.rollPositions.push({x: this.x, time: currentTime});
